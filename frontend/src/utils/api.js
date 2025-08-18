@@ -1,0 +1,6 @@
+const BASE = "http://localhost:5000/api/overlays";
+
+export const listOverlays   = () => fetch(BASE).then(r => r.json());
+export const createOverlay  = d  => fetch(BASE,              {method:"POST", body:JSON.stringify(d), headers:{'Content-Type':'application/json'}}).then(r=>r.json());
+export const updateOverlay  = (id,d)=> fetch(`${BASE}/${id}`, {method:"PUT",  body:JSON.stringify(d), headers:{'Content-Type':'application/json'}}).then(r=>r.json());
+export const deleteOverlay  = id => fetch(`${BASE}/${id}`,   {method:"DELETE"});
