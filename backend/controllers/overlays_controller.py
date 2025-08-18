@@ -1,46 +1,37 @@
 from flask import request, jsonify, Blueprint
-from ..models.overlay_model import OverlayModel
+from ..models.overlay_model   import OverlayModel
 from ..services.overlay_service import OverlayService
-from ..extensions import db
+from ..extensions             import db
 
-bp =  Blueprint("overlays", __name__, url_prefix="/api/overlays")
+bp = Blueprint("overlays", __name__, url_prefix="/api/overlays")
 
-#instantiate model/service using global db
-model = OverlayModel(db)
+model   = OverlayModel(db)
 service = OverlayService(model)
 
-@bp.route("", methods=["GET"])
+
+@bp.get("")
 def list_overlays():
-    data = service.list_overlays()
-    return jsonify(data), 200
+    return jsonify(service.list_overlays()), 200
 
 
-@bp.route("", methods=["POST"])
+@bp.post("")
 def create_overlay():
-    payload = request.get_json() or {}
-    res = service.create_overlay(payload)
-    return jsonify(res), 201
+    return jsonify(service.create_overlay(request.get_json() or {})), 201
 
-@bp.route("/<oid>", methods=["GET"])
+
+@bp.get("/<oid>")
 def get_overlay(oid):
     doc = service.get_overlay(oid)
-    if not doc:
-        return jsonify({"message": "Not Found"}), 404
-    
-    return jsonify(doc), 200
+    return (jsonify(doc), 200) if doc else (jsonify({"msg": "Not found"}), 404)
 
 
-@bp.route("/<oid>", methods=["PUT"])
+@bp.put("/<oid>")
 def update_overlay(oid):
-    payload = request.get_json() or {}
-    doc = service.update_overlay(oid, payload)
-    if not doc:
-        return jsonify({"message":"Not found"}), 404
-    return jsonify(doc), 200
+    doc = service.update_overlay(oid, request.get_json() or {})
+    return (jsonify(doc), 200) if doc else (jsonify({"msg": "Not found"}), 404)
 
-@bp.route("/<oid>", methods=["DELETE"])
+
+@bp.delete("/<oid>")
 def delete_overlay(oid):
     deleted = service.delete_overlay(oid)
-    if deleted == 0:
-        return jsonify({"message":"Not found"}), 404
-    return jsonify({"deleted": True}), 200
+    return (jsonify({"deleted": True}), 200) if deleted else (jsonify({"msg": "Not found"}), 404)
