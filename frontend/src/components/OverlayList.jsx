@@ -140,7 +140,7 @@ function OverlayList({
                   </div>
 
                   {/* Info */}
-                  <div className="text-xs text-gray-400 mb-3 font-mono">
+                  <div className=" text-xs text-gray-400 mb-3 font-mono ">
                     Position: ({overlay.x}, {overlay.y}) • Size: {overlay.width}×
                     {overlay.height}
                     {overlay.rotation !== 0 && ` • Rotation: ${overlay.rotation}°`}
@@ -148,10 +148,10 @@ function OverlayList({
 
                   {/* Expanded controls for selected */}
                   {selectedOverlay?.id === overlay.id && (
-                    <div className="mt-4 space-y-4 p-4 bg-gray-800/50 rounded-lg border border-gray-600">
+                    <div className="flex flex-wrap mt-4 space-y-4 p-4 bg-gray-800/50 rounded-lg border border-gray-600">
                       {overlay.type === "text" && (
                         <>
-                          <div>
+                          <div className="w-full mb-3">
                             <label className="block text-xs font-medium text-gray-400 mb-2">
                               Text Content
                             </label>
@@ -168,18 +168,18 @@ function OverlayList({
                           </div>
 
                           <div className="grid grid-cols-2 gap-3">
-                            <div>
+                            <div className="flex flex-wrap">
                               <label className="block text-xs font-medium text-gray-400 mb-2">
                                 Text Color
                               </label>
-                              <div className="flex gap-2">
+                              <div className="flex flex-wrap gap-2">
                                 <input
                                   type="color"
                                   value={overlay.color || "#ffffff"}
                                   onChange={(e) =>
                                     handleUpdate(overlay, "color", e.target.value)
                                   }
-                                  className="w-10 h-8 rounded border border-gray-600 bg-gray-700"
+                                  className="w-8 h-8 rounded border border-gray-600 bg-gray-700"
                                 />
                                 <input
                                   type="text"
@@ -187,12 +187,12 @@ function OverlayList({
                                   onChange={(e) =>
                                     handleUpdate(overlay, "color", e.target.value)
                                   }
-                                  className="flex-1 p-2 rounded bg-gray-700 border border-gray-600 text-white text-xs font-mono"
+                                  className="flex-1 p-2 w-12 sm:w-16 rounded bg-gray-700 border border-gray-600 text-white text-xs font-mono"
                                 />
                               </div>
                             </div>
 
-                            <div>
+                            <div className="flex flex-wrap">
                               <label className="block text-xs font-medium text-gray-400 mb-2">
                                 Font Size: {overlay.fontSize || 24}px
                               </label>
@@ -216,7 +216,7 @@ function OverlayList({
                       )}
 
                       {/* Position & Size */}
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-3 w-full">
                         <div>
                           <label className="block text-xs font-medium text-gray-400 mb-2">
                             Width
@@ -258,7 +258,7 @@ function OverlayList({
                       </div>
 
                       {/* Quick Position */}
-                      <div>
+                      <div className="w-full">
                         <label className="block text-xs font-medium text-gray-400 mb-2">
                           Quick Position
                         </label>
@@ -282,7 +282,7 @@ function OverlayList({
                       </div>
 
                       {/* Rotation */}
-                      <div>
+                      <div className="w-full">
                         <label className="block text-xs font-medium text-gray-400 mb-2">
                           Rotation: {overlay.rotation || 0}°
                         </label>
@@ -317,7 +317,7 @@ function OverlayList({
                 </div>
 
                 {/* Delete / Edit */}
-                <div className="flex flex-col gap-2 ml-4">
+                <div className="flex  gap-2 ml-4">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
