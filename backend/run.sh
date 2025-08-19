@@ -1,6 +1,4 @@
-# simple dev run
-python -m venv venv || true
-source venv/bin/activate
-pip install -r requirements.txt
-python app.py
+# Production run script for Render
 
+# Start the app using Gunicorn (production server)
+gunicorn app:app --bind 0.0.0.0:$PORT --workers 4
