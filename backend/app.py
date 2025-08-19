@@ -18,6 +18,10 @@ mongo_client = MongoClient(app.config["MONGO_URI"])
 db = mongo_client[app.config["DB_NAME"]]
 
 # Register blueprints
+@app.get("/")
+def root():
+    return "OK", 200
+
 app.register_blueprint(init_overlay_routes(db))
 app.register_blueprint(upload_bp)
 app.register_blueprint(stream_bp)
