@@ -1,17 +1,12 @@
 import os
-from dotenv import load_dotenv
-load_dotenv()
 
 class Config:
-    # Mongo
-    MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017")
-    DB_NAME   = os.getenv("DB_NAME",   "rtsp_overlays")
+    MONGO_URI = "mongodb://localhost:27017/"
+    DB_NAME = "rtsp_overlays"
+    UPLOAD_FOLDER = "static/uploads"
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5 MB
+    ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
-    # Streaming
-    RTSP_URL  = os.getenv("RTSP_URL",  "rtsp://rtspstream:UfAy432VJtvZAAPi6iDEJ@zephyr.rtsp.stream/traffic")
-    HLS_DIR   = os.getenv("HLS_DIR",   "static/hls")
-
-    # Flask
-    HOST      = os.getenv("HOST", '0.0.0.0')
-    PORT      = int(os.getenv("PORT", 5000))
-    DEBUG     = os.getenv("DEBUG", "1") == "1"
+    @staticmethod
+    def init_app(app):
+        os.makedirs(Config.UPLOAD_FOLDER, exist_ok=True)

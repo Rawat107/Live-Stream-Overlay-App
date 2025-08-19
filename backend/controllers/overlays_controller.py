@@ -1,44 +1,83 @@
-from flask import request, jsonify, Blueprint
-from models.overlay_model import OverlayModel
-from services.overlay_service import OverlayService
+from flask import Blueprint, request, jsonify
+from bson import ObjectId
+from datetime import datetime
+from models.overlay_model import serialize_overlay
 
-def register_overlay_routes(db):
-    bp = Blueprint("overlays", __name__, url_prefix="/api/overlays")
-    
-    model = OverlayModel(db)
-    service = OverlayService(model)
+overlay_bp = Blueprint("overlay_bp", __name__)
+overlays_collection = None  # will be initialized from app.py
 
-    @bp.route("", methods=["GET"])
-    def list_overlays():
-        data = service.list_overlays()
-        return jsonify(data), 200
+def init_overlay_routes(db):
+    global overlays_collection
+    overlays_collection = db["overlays"]
+    return overlay_bp
 
-    @bp.route("", methods=["POST"])
-    def create_overlay():
-        payload = request.get_json() or {}
-        res = service.create_overlay(payload)
-        return jsonify(res), 201
+@overlay_bp.route("/api/overlays", methods=["GET"])
+def get_overlays():
+    try:
+        overlays = list(overlays_collection.find().sort("created_at", -1))
+        return jsonify([serialize_overlay(o) for o in overlays])
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    @bp.route("/<oid>", methods=["GET"])
-    def get_overlay(oid):
-        doc = service.get_overlay(oid)
-        if not doc:
-            return jsonify({"message": "Not Found"}), 404
-        return jsonify(doc), 200
+@overlay_bp.route("/api/overlays", methods=["POST"])
+def create_overlay():
+    try:
+        data = request.get_json()
+        overlay = {
+            "type": data.get("type", "text"),
+            "content": data.get("content", ""),
+            "x": int(data.get("x", 0)),
+            "y": int(data.get("y", 0)),
+            "width": int(data.get("width", 200)),
+            "height": int(data.get("height", 50)),
+            "fontSize": int(data.get("fontSize", 24)),
+            "color": data.get("color", "#ffffff"),
+            "rotation": int(data.get("rotation", 0)),
+            "imageUrl": data.get("imageUrl", ""),
+            "created_at": datetime.now(),
+        }
+        result = overlays_collection.insert_one(overlay)
+        overlay["id"] = str(result.inserted_id)
+        return jsonify(overlay), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    @bp.route("/<oid>", methods=["PUT"])
-    def update_overlay(oid):
-        payload = request.get_json() or {}
-        doc = service.update_overlay(oid, payload)
-        if not doc:
-            return jsonify({"message": "Not found"}), 404
-        return jsonify(doc), 200
+@overlay_bp.route("/api/overlays/<overlay_id>", methods=["GET"])
+def get_overlay(overlay_id):
+    try:
+        overlay = overlays_collection.find_one({"_id": ObjectId(overlay_id)})
+        if not overlay:
+            return jsonify({"error": "Overlay not found"}), 404
+        return jsonify(serialize_overlay(overlay))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    @bp.route("/<oid>", methods=["DELETE"])
-    def delete_overlay(oid):
-        deleted = service.delete_overlay(oid)
-        if deleted == 0:
-            return jsonify({"message": "Not found"}), 404
-        return jsonify({"deleted": True}), 200
+@overlay_bp.route("/api/overlays/<overlay_id>", methods=["PUT"])
+def update_overlay(overlay_id):
+    try:
+        data = request.get_json()
+        update_data = {}
+        for key in ["type", "content", "x", "y", "width", "height", "fontSize", "color", "rotation", "imageUrl"]:
+            if key in data:
+                update_data[key] = int(data[key]) if key in ["x", "y", "width", "height", "fontSize", "rotation"] else data[key]
 
-    return bp
+        update_data["updated_at"] = datetime.now()
+        result = overlays_collection.update_one({"_id": ObjectId(overlay_id)}, {"$set": update_data})
+
+        if result.matched_count == 0:
+            return jsonify({"error": "Overlay not found"}), 404
+
+        updated_overlay = overlays_collection.find_one({"_id": ObjectId(overlay_id)})
+        return jsonify(serialize_overlay(updated_overlay))
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@overlay_bp.route("/api/overlays/<overlay_id>", methods=["DELETE"])
+def delete_overlay(overlay_id):
+    try:
+        result = overlays_collection.delete_one({"_id": ObjectId(overlay_id)})
+        if result.deleted_count == 0:
+            return jsonify({"error": "Overlay not found"}), 404
+        return jsonify({"message": "Overlay deleted successfully"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
