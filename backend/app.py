@@ -24,6 +24,6 @@ app.register_blueprint(stream_bp)
 
 if __name__ == "__main__":
     print(" Starting RTSP Overlay API Server...")
-    print(" Video Stream: https://zephyr.rtsp.stream/hls/vIj-g-Ze426E3qCRA0sZt")
+    print(" Video Stream: https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8")
     print(" API Health: http://localhost:5000/health")
     app.run(host="0.0.0.0", port=5000, debug=True)
