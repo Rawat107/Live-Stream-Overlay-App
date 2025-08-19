@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import Hls from "hls.js";
 import ErrorBoundary from "./ErrorBoundary";
+import { MdRotateRight, MdOpenInFull } from "react-icons/md";
+
+
 
 // Updated working video URLs
 const VIDEO_URLS = [
@@ -23,6 +26,7 @@ export default function VideoPlayer({
   onSizeChange,
 }) {
   const videoRef = useRef();
+  const lastPointerPos = useRef(null);
   const overlayContainerRef = useRef();
   const [size, setSize] = useState({ width: 800, height: 400 });
   const [draggingId, setDraggingId] = useState(null);
@@ -109,7 +113,7 @@ export default function VideoPlayer({
     [size]
   );
 
-  // Unified pointer down handler for both mouse and touch
+  // Unified pointer down handler for both mouse and touchF
   const handlePointerDown = (e, overlay, action) => {
     e.preventDefault();
     e.stopPropagation();
@@ -136,6 +140,8 @@ export default function VideoPlayer({
 
       animationFrameRef.current = requestAnimationFrame(() => {
         const pos = getPointerPos(e);
+        lastPointerPos.current = pos;
+
         const deltaX = pos.x - dragStart.x;
         const deltaY = pos.y - dragStart.y;
 
@@ -182,16 +188,19 @@ export default function VideoPlayer({
   const handlePointerUp = useCallback(
     (e) => {
       if (draggingId) {
-        // Delete if dropped outside
-        const pos = getPointerPos(e);
-        if (pos.x < 0 || pos.x > size.width || pos.y < 0 || pos.y > size.height) {
-          onOverlayDelete(draggingId);
-        } else {
-          // Commit to server after drag finishes
-          const final = overlays.find((o) => o.id === draggingId);
-          if (final) onOverlayCommit?.(final.id, final);
+        const pos = lastPointerPos.current;
+
+        // Only delete if we actually have pointer coords
+        if (pos){
+          if (pos.x < 0 || pos.x > size.width || pos.y < 0 || pos.y > size.height) {
+            onOverlayDelete(draggingId);
+          } else {
+            const final = overlays.find((o) => o.id === draggingId);
+            if (final) onOverlayCommit?.(final.id, final);
+          }
         }
       }
+
       if (resizingId) {
         const final = overlays.find((o) => o.id === resizingId);
         if (final) onOverlayCommit?.(final.id, final);
@@ -209,6 +218,7 @@ export default function VideoPlayer({
     },
     [draggingId, resizingId, rotatingId, overlays, getPointerPos, size, onOverlayDelete, onOverlayCommit]
   );
+
 
   // Deselect when clicking outside overlays (i.e., on the video area)
   const handleOuterClick = useCallback(
@@ -349,18 +359,24 @@ export default function VideoPlayer({
                     </button>
 
                     <div
-                      className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded cursor-se-resize hover:bg-blue-600 transition-colors shadow-md pointer-events-auto"
+                      className="absolute -bottom-2 -right-2 cursor-se-resize pointer-events-auto"
                       onMouseDown={(e) => handlePointerDown(e, overlay, "resize")}
                       onTouchStart={(e) => handlePointerDown(e, overlay, "resize")}
                       title="Resize overlay"
-                    />
+                    >
+                      <MdOpenInFull className="w-5 h-5 text-blue-500 hover:text-blue-600 drop-shadow" />
+                    </div>
+
 
                     <div
-                      className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 rounded-full cursor-grab hover:bg-green-600 transition-colors shadow-md pointer-events-auto"
+                      className="absolute -top-8 left-1/2 transform -translate-x-1/2 cursor-grab pointer-events-auto"
                       onMouseDown={(e) => handlePointerDown(e, overlay, "rotate")}
                       onTouchStart={(e) => handlePointerDown(e, overlay, "rotate")}
                       title="Rotate overlay"
-                    />
+                    >
+                      <MdRotateRight className="w-6 h-6 text-green-500 hover:text-green-600 drop-shadow" />
+                    </div>
+
                   </>
                 )}
               </div>
