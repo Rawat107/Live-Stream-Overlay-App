@@ -15,12 +15,12 @@ const safeNum = (val, fallback = 0) =>
 
 export default function VideoPlayer({
   overlays = [],
-  onOverlayUpdateLive,  
-  onOverlayCommit,      
+  onOverlayUpdateLive,
+  onOverlayCommit,
   onOverlayDelete,
   onOverlaySelect,
   selectedOverlay,
-  onSizeChange,         
+  onSizeChange,
 }) {
   const videoRef = useRef();
   const overlayContainerRef = useRef();
@@ -91,9 +91,12 @@ export default function VideoPlayer({
     };
   }, [onSizeChange]);
 
-  const getMousePos = useCallback((e) => {
+  // Get position from mouse or touch event
+  const getPointerPos = useCallback((e) => {
     const rect = overlayContainerRef.current.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const clientX = e.clientX || (e.touches && e.touches[0]?.clientX) || 0;
+    const clientY = e.clientY || (e.touches && e.touches[0]?.clientY) || 0;
+    return { x: clientX - rect.left, y: clientY - rect.top };
   }, []);
 
   const constrainToVideo = useCallback(
@@ -106,10 +109,11 @@ export default function VideoPlayer({
     [size]
   );
 
-  const handleMouseDown = (e, overlay, action) => {
+  // Unified pointer down handler for both mouse and touch
+  const handlePointerDown = (e, overlay, action) => {
     e.preventDefault();
     e.stopPropagation();
-    const pos = getMousePos(e);
+    const pos = getPointerPos(e);
     setDragStart(pos);
     setInitialState({
       x: overlay.x,
@@ -125,13 +129,13 @@ export default function VideoPlayer({
   };
 
   // PERF: local-only updates during interaction (no API)
-  const handleMouseMove = useCallback(
+  const handlePointerMove = useCallback(
     (e) => {
       if (!draggingId && !resizingId && !rotatingId) return;
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
 
       animationFrameRef.current = requestAnimationFrame(() => {
-        const pos = getMousePos(e);
+        const pos = getPointerPos(e);
         const deltaX = pos.x - dragStart.x;
         const deltaY = pos.y - dragStart.y;
 
@@ -169,17 +173,17 @@ export default function VideoPlayer({
       dragStart,
       initialState,
       overlays,
-      getMousePos,
+      getPointerPos,
       constrainToVideo,
       onOverlayUpdateLive,
     ]
   );
 
-  const handleMouseUp = useCallback(
+  const handlePointerUp = useCallback(
     (e) => {
       if (draggingId) {
         // Delete if dropped outside
-        const pos = getMousePos(e);
+        const pos = getPointerPos(e);
         if (pos.x < 0 || pos.x > size.width || pos.y < 0 || pos.y > size.height) {
           onOverlayDelete(draggingId);
         } else {
@@ -203,7 +207,7 @@ export default function VideoPlayer({
       setInitialState(null);
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
     },
-    [draggingId, resizingId, rotatingId, overlays, getMousePos, size, onOverlayDelete, onOverlayCommit]
+    [draggingId, resizingId, rotatingId, overlays, getPointerPos, size, onOverlayDelete, onOverlayCommit]
   );
 
   // Deselect when clicking outside overlays (i.e., on the video area)
@@ -217,16 +221,25 @@ export default function VideoPlayer({
     [onOverlaySelect]
   );
 
+  // Add event listeners for both mouse and touch
   useEffect(() => {
     if (draggingId || resizingId || rotatingId) {
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      // Mouse events
+      document.addEventListener("mousemove", handlePointerMove);
+      document.addEventListener("mouseup", handlePointerUp);
+      
+      // Touch events
+      document.addEventListener("touchmove", handlePointerMove, { passive: false });
+      document.addEventListener("touchend", handlePointerUp);
+      
       return () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
+        document.removeEventListener("mousemove", handlePointerMove);
+        document.removeEventListener("mouseup", handlePointerUp);
+        document.removeEventListener("touchmove", handlePointerMove);
+        document.removeEventListener("touchend", handlePointerUp);
       };
     }
-  }, [draggingId, resizingId, rotatingId, handleMouseMove, handleMouseUp]);
+  }, [draggingId, resizingId, rotatingId, handlePointerMove, handlePointerUp]);
 
   return (
     <div
@@ -278,8 +291,12 @@ export default function VideoPlayer({
                   background:
                     overlay.type === "image" ? "transparent" : "rgba(0,0,0,0.1)",
                   borderRadius: "4px",
+                  touchAction: "none", // Prevent default touch behaviors
                 }}
-                onMouseDown={(e) => handleMouseDown(e, overlay, "drag")}
+                // Mouse events
+                onMouseDown={(e) => handlePointerDown(e, overlay, "drag")}
+                // Touch events
+                onTouchStart={(e) => handlePointerDown(e, overlay, "drag")}
                 onClick={(e) => {
                   e.stopPropagation();
                   onOverlaySelect?.(overlay);
@@ -302,7 +319,11 @@ export default function VideoPlayer({
                   </div>
                 ) : (
                   <img
-                    src={`http://localhost:5000${overlay.imageUrl}`}
+                    src={
+                      overlay.imageUrl?.startsWith('http')
+                        ? overlay.imageUrl
+                        : `http://localhost:5000${overlay.imageUrl}`
+                    }
                     alt="overlay"
                     className="w-full h-full object-contain pointer-events-none"
                     draggable={false}
@@ -313,8 +334,12 @@ export default function VideoPlayer({
                 {selectedOverlay?.id === overlay.id && (
                   <>
                     <button
-                      className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white text-sm font-bold hover:bg-red-600 transition-colors shadow-md flex items-center justify-center pointer-events-auto"
+                      className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-red-500 text-white text-lg font-bold hover:bg-red-600 transition-colors shadow-md flex items-center justify-center pointer-events-auto"
                       onClick={(e) => {
+                        e.stopPropagation();
+                        onOverlayDelete(overlay.id);
+                      }}
+                      onTouchStart={(e) => {
                         e.stopPropagation();
                         onOverlayDelete(overlay.id);
                       }}
@@ -324,14 +349,16 @@ export default function VideoPlayer({
                     </button>
 
                     <div
-                      className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded cursor-se-resize hover:bg-blue-600 transition-colors shadow-md pointer-events-auto"
-                      onMouseDown={(e) => handleMouseDown(e, overlay, "resize")}
+                      className="absolute -bottom-2 -right-2 w-6 h-6 bg-blue-500 rounded cursor-se-resize hover:bg-blue-600 transition-colors shadow-md pointer-events-auto"
+                      onMouseDown={(e) => handlePointerDown(e, overlay, "resize")}
+                      onTouchStart={(e) => handlePointerDown(e, overlay, "resize")}
                       title="Resize overlay"
                     />
 
                     <div
-                      className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-green-500 rounded-full cursor-grab hover:bg-green-600 transition-colors shadow-md pointer-events-auto"
-                      onMouseDown={(e) => handleMouseDown(e, overlay, "rotate")}
+                      className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-6 h-6 bg-green-500 rounded-full cursor-grab hover:bg-green-600 transition-colors shadow-md pointer-events-auto"
+                      onMouseDown={(e) => handlePointerDown(e, overlay, "rotate")}
+                      onTouchStart={(e) => handlePointerDown(e, overlay, "rotate")}
                       title="Rotate overlay"
                     />
                   </>
@@ -352,7 +379,7 @@ export default function VideoPlayer({
       </div>
 
       <div className="md:hidden bg-gray-800 text-gray-300 text-xs p-2 rounded-b text-center">
-        Tap to select • Drag to move • Resize & rotate when selected
+        Tap to select • Touch & drag to move • Use handles to resize/rotate
       </div>
     </div>
   );

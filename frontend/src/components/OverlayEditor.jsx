@@ -8,6 +8,8 @@ function OverlayEditor({ onAdd }) {
   const [color, setColor] = useState("#ffffff");
   const [fontSize, setFontSize] = useState(24);
   const [imageFile, setImageFile] = useState(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageInputType, setImageInputType] = useState("upload"); // "upload" or "url"
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState("");
   const fileInput = useRef();
@@ -19,15 +21,45 @@ function OverlayEditor({ onAdd }) {
       fileInput.current.value = "";
       return;
     }
-    
     if (file) {
       setImageFile(file);
       // Create preview URL
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
+      // Clear URL input when file is selected
+      setImageUrl("");
     } else {
       setImageFile(null);
       setPreviewUrl("");
+    }
+  };
+
+  const handleUrlChange = (e) => {
+    const url = e.target.value;
+    setImageUrl(url);
+    // Set preview URL for URL input
+    if (url.trim()) {
+      setPreviewUrl(url);
+      // Clear file input when URL is entered
+      setImageFile(null);
+      if (fileInput.current) {
+        fileInput.current.value = "";
+      }
+    } else {
+      if (imageInputType === "url") {
+        setPreviewUrl("");
+      }
+    }
+  };
+
+  const handleInputTypeChange = (newType) => {
+    setImageInputType(newType);
+    // Clear both inputs when switching
+    setImageFile(null);
+    setImageUrl("");
+    setPreviewUrl("");
+    if (fileInput.current) {
+      fileInput.current.value = "";
     }
   };
 
@@ -37,7 +69,6 @@ function OverlayEditor({ onAdd }) {
         alert("Please enter some text for the overlay");
         return;
       }
-      
       const overlayData = {
         type: "text",
         content: text.trim(),
@@ -49,33 +80,58 @@ function OverlayEditor({ onAdd }) {
         y: 50,
         rotation: 0
       };
-      
       await onAdd(overlayData);
       setText("");
-    } else if (type === "image" && imageFile) {
-      setUploading(true);
-      try {
-        const { url } = await uploadImage(imageFile);
-        
+    } else if (type === "image") {
+      // Handle file upload
+      if (imageFile) {
+        setUploading(true);
+        try {
+          const { url } = await uploadImage(imageFile);
+          const overlayData = {
+            type: "image",
+            imageUrl: url,
+            width: 150,
+            height: 150,
+            x: 100,
+            y: 100,
+            rotation: 0
+          };
+          await onAdd(overlayData);
+          setImageFile(null);
+          setPreviewUrl("");
+          fileInput.current.value = "";
+        } catch (err) {
+          console.error("Upload failed:", err);
+          alert("Failed to upload image. Please try again.");
+        } finally {
+          setUploading(false);
+        }
+      }
+      // Handle URL input
+      else if (imageUrl.trim()) {
+        // Basic URL validation
+        try {
+          new URL(imageUrl);
+        } catch {
+          alert("Please enter a valid image URL");
+          return;
+        }
+
         const overlayData = {
           type: "image",
-          imageUrl: url,
+          imageUrl: imageUrl.trim(),
           width: 150,
           height: 150,
           x: 100,
           y: 100,
           rotation: 0
         };
-        
         await onAdd(overlayData);
-        setImageFile(null);
+        setImageUrl("");
         setPreviewUrl("");
-        fileInput.current.value = "";
-      } catch (err) {
-        console.error("Upload failed:", err);
-        alert("Failed to upload image. Please try again.");
-      } finally {
-        setUploading(false);
+      } else {
+        alert("Please select a file or enter an image URL");
       }
     }
   };
@@ -85,7 +141,9 @@ function OverlayEditor({ onAdd }) {
     setColor("#ffffff");
     setFontSize(24);
     setImageFile(null);
+    setImageUrl("");
     setPreviewUrl("");
+    setImageInputType("upload");
     if (fileInput.current) {
       fileInput.current.value = "";
     }
@@ -205,46 +263,93 @@ function OverlayEditor({ onAdd }) {
         {type === "image" && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Image File
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  ref={fileInput}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFile}
-                  className="flex-1 text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer"
-                />
-                {imageFile && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImageFile(null);
-                      setPreviewUrl("");
-                      fileInput.current.value = "";
-                    }}
-                    className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors"
-                    title="Remove image"
-                  >
-                    <FaTrashAlt className="inline" />
-                  </button>
-                )}
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                Max 5MB • Supports PNG, JPG, WEBP, GIF
+              <label className="block text-sm font-medium text-gray-300 mb-2">Image Source</label>
+              <div className="flex gap-4 mb-3">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="upload"
+                    checked={imageInputType === "upload"}
+                    onChange={(e) => handleInputTypeChange(e.target.value)}
+                    className="mr-2"
+                  />
+                  <span className="text-white text-sm">Upload File</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="url"
+                    checked={imageInputType === "url"}
+                    onChange={(e) => handleInputTypeChange(e.target.value)}
+                    className="mr-2"
+                  />
+                  <span className="text-white text-sm">URL (if using live)</span>
+                </label>
               </div>
             </div>
 
-            {/* Image Preview */}
-            {previewUrl && (
-              <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
-                <div className="text-sm text-gray-400 mb-2">Preview:</div>
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="max-w-full h-32 object-contain rounded border border-gray-600"
+            {imageInputType === "upload" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Choose Image (PNG, JPG, GIF, WebP - Max 5MB)
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    ref={fileInput}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFile}
+                    className="flex-1 text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700 file:cursor-pointer"
+                  />
+                  {imageFile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setImageFile(null);
+                        setPreviewUrl("");
+                        fileInput.current.value = "";
+                      }}
+                      className="p-2 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors"
+                      title="Remove image"
+                    >
+                      <FaTrashAlt className="inline" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {imageInputType === "url" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Image URL
+                </label>
+                <input
+                  type="url"
+                  value={imageUrl}
+                  onChange={handleUrlChange}
+                  placeholder="https://example.com/image.jpg"
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+              </div>
+            )}
+
+            {previewUrl && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Preview</label>
+                <div className="bg-gray-900 rounded-lg p-4 border border-gray-600">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="max-w-full h-32 object-contain rounded border border-gray-600"
+                    onError={() => {
+                      if (imageInputType === "url") {
+                        alert("Failed to load image from URL. Please check the URL.");
+                        setPreviewUrl("");
+                      }
+                    }}
+                  />
+                </div>
               </div>
             )}
           </div>
@@ -256,7 +361,7 @@ function OverlayEditor({ onAdd }) {
             onClick={handleAdd}
             disabled={
               (type === "text" && !text.trim()) ||
-              (type === "image" && (!imageFile || uploading))
+              (type === "image" && (!imageFile && !imageUrl.trim()) || uploading)
             }
             className={`flex-1 py-3 px-6 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
               type === "text"
